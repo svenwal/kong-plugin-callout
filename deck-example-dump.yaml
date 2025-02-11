@@ -18,6 +18,7 @@ services:
     plugins:
     - config:
         endpoint_url: https://jsonplaceholder.typicode.com/users
+        error_message: Authentication failed when doing callout
         extract_paths:
           company_name: company.name
           user_id: id
@@ -27,6 +28,7 @@ services:
           company: company_name
           user: id
         jwt_secret: foo
+        return_errors: true
         set_headers: true
         ssl_verify: true
       enabled: true

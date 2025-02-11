@@ -45,7 +45,7 @@ local function create_jwt(payload, secret)
     )
     
     if not token then
-        kong.log.err("Failed to create JWT")
+        kong.log.debug("Failed to create JWT")
         return nil, "Failed to create JWT"
     end
     
@@ -53,46 +53,58 @@ local function create_jwt(payload, secret)
 end
 
 function CalloutHandler:access(conf)
-    kong.log.notice("Starting access phase")
-    kong.log.notice("Endpoint URL: ", conf.endpoint_url)
+    kong.log.debug("Starting access phase")
+    kong.log.debug("Endpoint URL: ", conf.endpoint_url)
     
     -- Read and parse request body
     ngx.req.read_body()
     local body = ngx.req.get_body_data()
     if not body then
-        kong.log.notice("No request body found")
-        return kong.response.exit(400, { message = "Missing request body" })
+        local err = "No request body found"
+        kong.log.debug(err)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err or nil
+        })
     end
     
-    kong.log.notice("Request body: ", body)
+    kong.log.debug("Request body: ", body)
     local json_body, err = cjson.decode(body)
     if not json_body then
-        kong.log.notice("JSON decode error: ", err)
-        return kong.response.exit(400, { message = "Invalid JSON body: " .. err })
+        local err_msg = "JSON decode error: " .. err
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
     
     -- Extract values from request body based on configuration
-    kong.log.notice("Extracting values with paths: ", cjson.encode(conf.extract_paths))
+    kong.log.debug("Extracting values with paths: ", cjson.encode(conf.extract_paths))
     local extracted_values, extract_err = extract_values(json_body, conf.extract_paths)
     if not extracted_values then
-        kong.log.notice("Extraction error: ", extract_err)
-        return kong.response.exit(400, { message = extract_err })
+        local err_msg = "Extraction error: " .. extract_err
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
-    kong.log.notice("Extracted values: ", cjson.encode(extracted_values))
+    kong.log.debug("Extracted values: ", cjson.encode(extracted_values))
     
     -- Set extracted values as headers if configured
     if conf.set_headers then
-        kong.log.notice("Setting headers with prefix: ", conf.header_prefix)
+        kong.log.debug("Setting headers with prefix: ", conf.header_prefix)
         for key, value in pairs(extracted_values) do
             if type(value) == "string" then
-                kong.log.notice("Setting header: ", conf.header_prefix .. key, " = ", value)
+                kong.log.debug("Setting header: ", conf.header_prefix .. key, " = ", value)
                 kong.service.request.set_header(conf.header_prefix .. key, value)
             end
         end
     end
     
     -- Make HTTP call to configured endpoint
-    kong.log.notice("Making HTTP call to: ", conf.endpoint_url)
+    kong.log.debug("Making HTTP call to: ", conf.endpoint_url)
     local httpc = http.new()
     local res, err = httpc:request_uri(conf.endpoint_url, {
         method = "POST",
@@ -104,40 +116,64 @@ function CalloutHandler:access(conf)
     })
     
     if not res then
-        kong.log.notice("HTTP call failed: ", err)
-        return kong.response.exit(500, { message = "Failed to call endpoint: " .. err })
+        local err_msg = "HTTP call failed: " .. err
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
     
-    kong.log.notice("HTTP response status: ", res.status)
-    kong.log.notice("HTTP response body: ", res.body)
+    kong.log.debug("HTTP response status: ", res.status)
+    kong.log.debug("HTTP response body: ", res.body)
     
     if res.status >= 400 then
-        kong.log.notice("Endpoint returned error status: ", res.status)
-        return kong.response.exit(res.status, { message = "Endpoint returned error status" })
+        local err_msg = "Endpoint returned error status: " .. res.status
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
     
     -- Parse response body
     local response_json, parse_err = cjson.decode(res.body)
     if not response_json then
-        kong.log.notice("Failed to parse response JSON: ", parse_err)
-        return kong.response.exit(500, { message = "Invalid JSON response from endpoint: " .. parse_err })
+        local err_msg = "Failed to parse response JSON: " .. parse_err
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
     
     -- Extract values from response for JWT
-    kong.log.notice("Extracting JWT values with paths: ", cjson.encode(conf.jwt_paths))
+    kong.log.debug("Extracting JWT values with paths: ", cjson.encode(conf.jwt_paths))
     local jwt_values, jwt_extract_err = extract_values(response_json, conf.jwt_paths)
     if not jwt_values then
-        kong.log.notice("JWT extraction error: ", jwt_extract_err)
-        return kong.response.exit(500, { message = jwt_extract_err })
+        local err_msg = "JWT extraction error: " .. jwt_extract_err
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
     end
-    kong.log.notice("JWT values: ", cjson.encode(jwt_values))
+    kong.log.debug("JWT values: ", cjson.encode(jwt_values))
     
     -- Create JWT
     local jwt_token = create_jwt(jwt_values, conf.jwt_secret)
-    kong.log.notice("Created JWT token: ", jwt_token)
+    if not jwt_token then
+        local err_msg = "Failed to create JWT token"
+        kong.log.debug(err_msg)
+        return kong.response.exit(401, { 
+            message = conf.error_message,
+            error = conf.return_errors and err_msg or nil
+        })
+    end
+    kong.log.debug("Created JWT token: ", jwt_token)
     
     -- Set JWT in header
-    kong.log.notice("Setting JWT header: ", conf.jwt_header_name)
+    kong.log.debug("Setting JWT header: ", conf.jwt_header_name)
     kong.service.request.set_header(conf.jwt_header_name, "Bearer " .. jwt_token)
 end
 

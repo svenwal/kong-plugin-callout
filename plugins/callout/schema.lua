@@ -44,6 +44,14 @@ return {
               type = "string",
               default = "Authorization",
           }},
+          { error_message = {
+              type = "string",
+              default = "Authentication failed",
+          }},
+          { return_errors = {
+              type = "boolean",
+              default = false,
+          }},
         },
       },
     },
