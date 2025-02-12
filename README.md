@@ -83,19 +83,19 @@ docker-compose up -d
 ```
 
 This will start Kong with:
-- Admin API on port 6001
-- Proxy on port 6000
-- Manager on port 6002
+- Admin API on port 8001
+- Proxy on port 8000
+- Manager on port 8002
 - Plugin enabled and ready for testing
 
 Apply the example configuration:
 ```bash
-deck gateway sync --kong-addr http://localhost:6001 < deck-example-dump.yaml
+deck gateway sync --kong-addr http://localhost:8001 < deck-example-dump.yaml
 ```
 
 Test the plugin with a sample request:
 ```bash
-curl -X POST http://localhost:6000/ \
+curl -X POST http://localhost:8000/ \
   -H "Content-Type: application/json" \
   -d '{
     "user": {

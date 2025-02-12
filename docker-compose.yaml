@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   kong-database:
     image: postgres:13
@@ -40,21 +38,21 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:6001
-      KONG_PROXY_LISTEN: 0.0.0.0:6000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PLUGINS: bundled,callout
       KONG_LOG_LEVEL: debug
       KONG_LUA_PACKAGE_PATH: /usr/local/custom-plugins/?.lua;/usr/local/custom-plugins/?/init.lua;;
-      KONG_ADMIN_GUI_URL: http://localhost:6002
-      KONG_ADMIN_API_URI: http://localhost:6001
-      KONG_ADMIN_GUI_API_URL: http://localhost:6001
-      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:6002
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_ADMIN_API_URI: http://localhost:8001
+      KONG_ADMIN_GUI_API_URL: http://localhost:8001
+      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
     ports:
-      - "6000:6000"
-      - "6001:6001"
-      - "6002:6002"
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
     volumes:
-      - ./plugins:/usr/local/custom-plugins/kong/plugins
+      - ./kong/plugins:/usr/local/custom-plugins/kong/plugins
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
